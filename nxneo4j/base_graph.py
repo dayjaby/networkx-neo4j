@@ -1,23 +1,26 @@
 class NodeView:
-    def __init__(self, records, key):
-        self.records = [r["node"] for r in records]
-        self.key = key
+    def __init__(self, graph):
+        self.graph = graph
 
     def __iter__(self):
         for r in self():
             yield r
 
     def __call__(self, data=False, default=None):
-        if not data:
-            for r in self.records:
-                yield r[self.key]
-        elif isinstance(data, bool):
-            for r in self.records:
-                rdata = {k: r[k] for k in r.keys() if k!=self.key}
-                yield (r[self.key], rdata)
-        else:
-            for r in self.records:
-                yield r[self.key], r.get(data, default)
+        with self.graph.driver.session() as session:
+            query = self.graph.get_nodes_query % (self.graph.node_label)
+            nodes = [r["node"] for r in session.run(query).records()]
+            key = self.graph.identifier_property
+            if not data:
+                for n in nodes:
+                    yield n[key]
+            elif isinstance(data, bool):
+                for n in nodes:
+                    rdata = {k: n[k] for k in n.keys() if k!=key}
+                    yield (n[key], rdata)
+            else:
+                for n in nodes:
+                    yield n[key], n.get(data, default)
 
 
 class BaseGraph:
@@ -31,17 +34,15 @@ class BaseGraph:
         self.relationship_type = config.get("relationship_type", "CONNECTED")
         self.graph = config.get("graph", "heavy")
         self.identifier_property = config.get("identifier_property", "id")
+        self.nodes = NodeView(self)
+
 
     get_nodes_query = """\
     MATCH (node:`%s`)
     RETURN node
     """
 
-    @property
-    def nodes(self):
-        with self.driver.session() as session:
-            query = self.get_nodes_query % (self.node_label)
-            return NodeView(session.run(query).records(), self.identifier_property)
+    # get_nodes_query is used in NodeView.__call__
 
     add_node_query = """\
     MERGE (:`%s` {`%s`: {value} })
