@@ -3,8 +3,7 @@ class NodeView:
         self.graph = graph
 
     def __iter__(self):
-        for r in self():
-            yield r
+        return iter(self.__call__())
 
     def __call__(self, data=False, default=None):
         with self.graph.driver.session() as session:
@@ -24,9 +23,11 @@ class NodeView:
 
 
 class BaseGraph:
-    def __init__(self, driver, direction, config=None):
+    def __init__(self, driver, direction, config=None, **attr):
         if config is None:
             config = {}
+
+        config.update(attr)
 
         self.driver = driver
         self.direction = direction
@@ -34,8 +35,22 @@ class BaseGraph:
         self.relationship_type = config.get("relationship_type", "CONNECTED")
         self.graph = config.get("graph", "heavy")
         self.identifier_property = config.get("identifier_property", "id")
-        self.nodes = NodeView(self)
 
+    def __iter__(self):
+        return iter(self.nodes)
+
+    def __contains__(self, n):
+        return n in self.nodes
+
+    def __len__(self):
+        return len(self)
+
+    @property
+    def nodes(self):
+        # Lazy View creation, like in networkx
+        nodes = NodeView(self)
+        self.__dict__["nodes"] = nodes
+        return nodes
 
     get_nodes_query = """\
     MATCH (node:`%s`)
@@ -69,9 +84,41 @@ class BaseGraph:
     MERGE (:`%s` {`%s`: value })
     """
 
+    add_nodes_query_with_attrdict = """\
+    UNWIND {values} AS props
+    MERGE (n:`%s` {`%s`: props.`%s` })
+    ON CREATE SET n=props
+    """
+
     def add_nodes_from(self, values):
+        are_node_attrdict_tuple = False
+        try:
+            print(type(values))
+            for v in values:
+                print(type(v))
+                print(type(v[1]))
+                if isinstance(v[1], dict):
+                    are_node_attrdict_tuple = True
+                break
+        except:
+            pass
+
         with self.driver.session() as session:
-            query = self.add_nodes_query % (self.node_label, self.identifier_property)
+            if are_node_attrdict_tuple:
+                query = self.add_nodes_query_with_attrdict % (
+                    self.node_label,
+                    self.identifier_property,
+                    self.identifier_property
+                )
+                n_values = []
+                for i, d in values:
+                    d = dict(d)
+                    d[self.identifier_property] = i
+                    n_values.append(d)
+                values = n_values
+            else:
+                query = self.add_nodes_query % (self.node_label, self.identifier_property)
+
             session.run(query, {"values": values})
 
     add_edge_query = """\
