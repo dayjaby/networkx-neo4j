@@ -109,14 +109,26 @@ class BaseGraph:
             )
             session.run(query, {"edges": [list(edge) for edge in edges]})
 
-    clear_graph_query = """\
+    _clear_graph_nodes_query = """\
     MATCH (n:`%s`)
-    DETACH DELETE n
+    DELETE n
+    """
+
+    _clear_graph_edges_query = """\
+    MATCH (:`%s`)-[r:`%s`]-(:`%s`)
+    DELETE r
     """
 
     def clear(self):
         with self.driver.session() as session:
-            query = self.clear_graph_query % (self.node_label)
+            if self.relationship_type:
+                query = self._clear_graph_edges_query % (
+                    self.node_label,
+                    self.relationship_type,
+                    self.node_label
+                )
+                session.run(query)
+            query = self._clear_graph_nodes_query % (self.node_label)
             session.run(query)
 
     number_of_nodes_query = """\
