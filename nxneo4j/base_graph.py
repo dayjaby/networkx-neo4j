@@ -21,6 +21,35 @@ class NodeView:
                 for n in nodes:
                     yield n[key], n.get(data, default)
 
+class EdgeView:
+    def __init__(self, graph):
+        self.graph = graph
+
+    def __iter__(self):
+        return iter(self.__call__())
+
+    def __call__(self, data=False, default=None):
+        if self.graph.relationship_type is None:
+            return []
+
+        with self.graph.driver.session() as session:
+            query = self.graph.get_edges_query % (
+                self.graph.node_label,
+                self.graph.relationship_type,
+                self.graph.node_label,
+                self.graph.identifier_property,
+                self.graph.identifier_property
+            )
+            edges = [(r["u"], r["v"], r["edge"]) for r in session.run(query).records()]
+            if not data:
+                for u, v, _ in edges:
+                    yield (u, v)
+            elif isinstance(data, bool):
+                for u, v, d in edges:
+                    yield (u, v, d)
+            else:
+                for u, v, d in edges:
+                    yield (u, v, d.get(data, default))
 
 class BaseGraph:
     def __init__(self, driver, direction, config=None, **attr):
@@ -52,12 +81,21 @@ class BaseGraph:
         self.__dict__["nodes"] = nodes
         return nodes
 
+    @property
+    def edges(self):
+        edges = EdgeView(self)
+        self.__dict__["edges"] = edges
+        return edges
+
     get_nodes_query = """\
     MATCH (node:`%s`)
     RETURN node
     """
 
-    # get_nodes_query is used in NodeView.__call__
+    get_edges_query = """\
+    MATCH (u:`%s`)-[edge:`%s`]->(v:`%s`)
+    RETURN u.`%s` AS u, v.`%s` AS v, edge
+    """
 
     add_node_query = """\
     MERGE (:`%s` {`%s`: {value} })
@@ -121,10 +159,11 @@ class BaseGraph:
     add_edge_query = """\
     MERGE (node1:`%s` {`%s`: {node1} })
     MERGE (node2:`%s` {`%s`: {node2} })
-    MERGE (node1)-[:`%s`]->(node2)
+    MERGE (node1)-[r:`%s`]->(node2)
+    ON CREATE SET r=$props
     """
 
-    def add_edge(self, node1, node2):
+    def add_edge(self, node1, node2, **attr):
         with self.driver.session() as session:
             query = self.add_edge_query % (
                 self.node_label,
@@ -133,16 +172,17 @@ class BaseGraph:
                 self.identifier_property,
                 self.relationship_type
             )
-            session.run(query, {"node1": node1, "node2": node2})
+            session.run(query, {"node1": node1, "node2": node2}, props=attr)
 
     add_edges_query = """\
     UNWIND {edges} AS edge
     MERGE (node1:`%s` {`%s`: edge[0] })
     MERGE (node2:`%s` {`%s`: edge[1] })
-    MERGE (node1)-[:`%s`]->(node2)
+    MERGE (node1)-[r:`%s`]->(node2)
+    ON CREATE SET r=edge[2]
     """
 
-    def add_edges_from(self, edges):
+    def add_edges_from(self, edges, **attr):
         with self.driver.session() as session:
             query = self.add_edges_query % (
                 self.node_label,
@@ -151,7 +191,27 @@ class BaseGraph:
                 self.identifier_property,
                 self.relationship_type
             )
-            session.run(query, {"edges": [list(edge) for edge in edges]})
+            def fix_edge(edge):
+                if len(edge) == 2:
+                    edge.append({})
+                return edge
+            session.run(query, {"edges": [fix_edge(list(edge)) for edge in edges]})
+
+
+    def update(self, edges=None, nodes=None):
+        if edges is not None:
+            if nodes is not None:
+                self.add_nodes_from(edges)
+                self.add_edges_from(nodes)
+            else:
+                try:
+                    graph_nodes = edges.nodes
+                    graph_edges = edges.edges
+                except:
+                    self.add_edges_from(edges)
+                else:
+                    self.add_nodes_from(graph_nodes(data=True))
+                    self.add_edges_from(graph_edges(data=True))
 
     _clear_graph_nodes_query = """\
     MATCH (n:`%s`)
