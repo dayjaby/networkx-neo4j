@@ -48,10 +48,21 @@ class BaseGraph:
     MERGE (:`%s` {`%s`: {value} })
     """
 
-    def add_node(self, value):
+    add_node_query_with_props = """\
+    MERGE (n:`%s` {`%s`: {value} })
+    ON CREATE SET n+=$props
+    """
+    def add_node(self, value, attr_dict=dict(), **attr):
         with self.driver.session() as session:
-            query = self.add_node_query % (self.node_label, self.identifier_property)
-            session.run(query, {"value": value})
+            if len(attr_dict) == 0 and len(attr) == 0:
+                query = self.add_node_query % (self.node_label, self.identifier_property)
+                session.run(query, {"value": value})
+            else:
+                props = dict(attr_dict)
+                for k, v in attr.items():
+                    props[k] = v
+                query = self.add_node_query_with_props % (self.node_label, self.identifier_property)
+                session.run(query, {"value": value}, props=props)
 
     add_nodes_query = """\
     UNWIND {values} AS value
@@ -97,6 +108,16 @@ class BaseGraph:
                 self.relationship_type
             )
             session.run(query, {"edges": [list(edge) for edge in edges]})
+
+    clear_graph_query = """\
+    MATCH (n:`%s`)
+    DETACH DELETE n
+    """
+
+    def clear(self):
+        with self.driver.session() as session:
+            query = self.clear_graph_query % (self.node_label)
+            session.run(query)
 
     number_of_nodes_query = """\
     MATCH (:`%s`)
