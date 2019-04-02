@@ -147,7 +147,8 @@ class BaseGraph:
                 n_values = []
                 for i, d in values:
                     d = dict(d)
-                    d[self.identifier_property] = i
+                    if self.identifier_property not in d:
+                        d[self.identifier_property] = i
                     n_values.append(d)
                 values = n_values
             else:
@@ -209,8 +210,23 @@ class BaseGraph:
                 except:
                     self.add_edges_from(edges)
                 else:
+                    graph_nodes_data = graph_nodes(data=True)
+                    graph_edges_data = graph_edges(data=True)
+                    adding_edges = []
+                    for u, v, data in graph_edges_data:
+                        try:
+                            if self.identifier_property in graph_nodes[u]:
+                                u = graph_nodes[u][self.identifier_property]
+                        except:
+                            pass
+                        try:
+                            if self.identifier_property in graph_nodes[v]:
+                                v = graph_nodes[v][self.identifier_property]
+                        except:
+                            pass
+                        adding_edges.append((u, v, data))
                     self.add_nodes_from(graph_nodes(data=True))
-                    self.add_edges_from(graph_edges(data=True))
+                    self.add_edges_from(adding_edges)
 
     _clear_graph_nodes_query = """\
     MATCH (n:`%s`)

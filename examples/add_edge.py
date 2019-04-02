@@ -14,6 +14,7 @@ H = nx.DiGraph()
 H.add_node("Cherry", shape="curved")
 H.add_node("Cherry juice")
 H.add_edge("Cherry juice", "Cherry", percentage=100)
+H.add_node(123, name="Kiwi")
 
 G.clear()
 G.add_node("Apple", shape="round")
