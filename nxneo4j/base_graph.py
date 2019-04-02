@@ -93,10 +93,7 @@ class BaseGraph:
     def add_nodes_from(self, values):
         are_node_attrdict_tuple = False
         try:
-            print(type(values))
             for v in values:
-                print(type(v))
-                print(type(v[1]))
                 if isinstance(v[1], dict):
                     are_node_attrdict_tuple = True
                 break
