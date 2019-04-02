@@ -30,7 +30,7 @@ class EdgeView:
 
     def __call__(self, data=False, default=None):
         if self.graph.relationship_type is None:
-            return []
+            return # raises StopIteration
 
         with self.graph.driver.session() as session:
             query = self.graph.get_edges_query % (
@@ -52,15 +52,14 @@ class EdgeView:
                     yield (u, v, d.get(data, default))
 
 class BaseGraph:
-    def __init__(self, driver, direction, config=None, **attr):
+    def __init__(self, driver, direction, config=None):
         if config is None:
             config = {}
-
-        config.update(attr)
 
         self.driver = driver
         self.direction = direction
         self.node_label = config.get("node_label", "Node")
+        self.node_label_out = config.get("node_label_out", self.node_label)
         self.relationship_type = config.get("relationship_type", "CONNECTED")
         self.graph = config.get("graph", "heavy")
         self.identifier_property = config.get("identifier_property", "id")

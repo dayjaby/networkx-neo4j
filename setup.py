@@ -17,10 +17,10 @@ if sys.argv[-1] == 'setup.py':
     print("To install, run 'python setup.py install'")
     print()
 
-if sys.version_info[:2] < (3, 5):
+"""if sys.version_info[:2] < (3, 5):
     print("NetworkX Neo4j requires Python 3.5 or later (%d.%d detected)." %
           sys.version_info[:2])
-    sys.exit(-1)
+    sys.exit(-1)"""
 
 packages = [
     "nxneo4j",

@@ -6,7 +6,7 @@ driver = GraphDatabase.driver("bolt://localhost:7687")
 
 config = {
     "node_label": "Food",
-    "relationship_type": None,
+    "relationship_type": "CONTAINS",
     "identifier_property": "name"
 }
 G = nxneo4j.Graph(driver, config)
