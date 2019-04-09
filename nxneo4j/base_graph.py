@@ -1,3 +1,5 @@
+import itertools
+
 class NodeView:
     def __init__(self, graph):
         self.graph = graph
@@ -71,7 +73,7 @@ class BaseGraph:
         return n in self.nodes
 
     def __len__(self):
-        return len(self)
+        return len(self.nodes)
 
     @property
     def nodes(self):
@@ -137,27 +139,27 @@ class BaseGraph:
         except:
             pass
 
-        with self.driver.session() as session:
-            if are_node_attrdict_tuple or len(attr) > 0:
-                query = self.add_nodes_query_with_attrdict % (
-                    self.node_label,
-                    self.identifier_property,
-                    self.identifier_property
-                )
-                n_values = []
-                for i in values:
-                    n_d = dict(attr)
-                    if are_node_attrdict_tuple:
-                        n_d.update(i[1])
-                        if self.identifier_property not in i[1]:
-                            n_d[self.identifier_property] = i[0]
-                    else:
-                        n_d[self.identifier_property] = i
-                    n_values.append(n_d)
-                values = n_values
-            else:
-                query = self.add_nodes_query % (self.node_label, self.identifier_property)
+        if are_node_attrdict_tuple or len(attr) > 0:
+            query = self.add_nodes_query_with_attrdict % (
+                self.node_label,
+                self.identifier_property,
+                self.identifier_property
+            )
+            n_values = []
+            for i in values:
+                n_d = dict(attr)
+                if are_node_attrdict_tuple:
+                    n_d.update(i[1])
+                    if self.identifier_property not in i[1]:
+                        n_d[self.identifier_property] = i[0]
+                else:
+                    n_d[self.identifier_property] = i
+                n_values.append(n_d)
+            values = n_values
+        else:
+            query = self.add_nodes_query % (self.node_label, self.identifier_property)
 
+        with self.driver.session() as session:
             session.run(query, {"values": values})
 
     add_edge_query = """\
@@ -201,6 +203,30 @@ class BaseGraph:
                 return edge
             session.run(query, {"edges": [fix_edge(list(edge)) for edge in edges]})
 
+    def add_path(self, path, **attr):
+        for u, v in itertools.izip(path, path[1:]):
+            self.add_edge(u, v, **attr)
+
+    remove_node_query = """\
+    MATCH (n:`%s` {`%s`: {value} })
+    DETACH DELETE n
+    """
+
+    def remove_node(self, n):
+        with self.driver.session() as session:
+            query = self.remove_node_query % (self.node_label, self.identifier_property)
+            session.run(query, {"value": n})
+
+    remove_nodes_query = """\
+    UNWIND $nodes as value
+    MERGE (n:`%s` {`%s`: value })
+    DETACH DELETE n
+    """
+
+    def remove_nodes_from(self, nodes):
+        with self.driver.session() as session:
+            query = self.remove_nodes_query % (self.node_label, self.identifier_property)
+            session.run(query, {"nodes": nodes})
 
     def update(self, edges=None, nodes=None, graph_id_props=None):
         if edges is not None:

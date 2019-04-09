@@ -20,7 +20,9 @@ G.add_node("Banana", {
     "average_weight": 100
 })
 G.add_node("Citrus")
+G.remove_node("Apple")
 G.add_nodes_from(["Peach", "Lemon"], tropic=True)
+G.remove_nodes_from(["Peach", "Citrus"])
 G.add_nodes_from([("Pear", {
     "shape": None,
     "average_weight": 200
