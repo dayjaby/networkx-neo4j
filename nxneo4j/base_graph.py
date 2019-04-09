@@ -138,17 +138,20 @@ class BaseGraph:
             pass
 
         with self.driver.session() as session:
-            if are_node_attrdict_tuple:
+            if are_node_attrdict_tuple or len(attr) > 0:
                 query = self.add_nodes_query_with_attrdict % (
                     self.node_label,
                     self.identifier_property,
                     self.identifier_property
                 )
                 n_values = []
-                for i, d in values:
+                for i in values:
                     n_d = dict(attr)
-                    n_d.update(d)
-                    if self.identifier_property not in d:
+                    if are_node_attrdict_tuple:
+                        n_d.update(i[1])
+                        if self.identifier_property not in i[1]:
+                            n_d[self.identifier_property] = i[0]
+                    else:
                         n_d[self.identifier_property] = i
                     n_values.append(n_d)
                 values = n_values

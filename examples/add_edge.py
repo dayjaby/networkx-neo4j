@@ -24,6 +24,7 @@ G.add_node("Banana", {
 })
 G.add_edge("Apple-banana juice", "Apple", percentage=60)
 G.add_edge("Apple-banana juice", "Banana", percentage=40)
+G.add_path(["Fish and Chips", "Pommes", "Potato"])
 G.add_node("Citrus")
 G.add_nodes_from([("Pear", {
     "shape": None,
