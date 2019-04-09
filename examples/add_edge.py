@@ -17,7 +17,7 @@ H.add_edge("Cherry juice", "Cherry", percentage=100)
 H.add_node(123, name="Kiwi")
 
 G.clear()
-G.add_node("Apple", shape="round")
+# G.add_node("Apple", shape="round")
 G.add_node("Banana", {
     "shape": "curved",
     "average_weight": 100
@@ -32,10 +32,11 @@ G.add_nodes_from([("Pear", {
     "shape": "round"
 })])
 
-G.update(H, graph_id_props="original_id")
-# does the same as:
+# G.update(H) does the same as:
 # G.add_nodes_from(H.nodes(data=True))
 # G.add_edges_from(H.edges(data=True))
+# graph_id_props allows us to specify properties, where to save the original nx node
+G.update(H, graph_id_props="original_id")
 
 for name, properties in G.nodes(data=True):
     print("{} has {} properties".format(name, len(properties)))

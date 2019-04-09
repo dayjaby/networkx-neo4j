@@ -127,7 +127,7 @@ class BaseGraph:
     ON CREATE SET n=props
     """
 
-    def add_nodes_from(self, values):
+    def add_nodes_from(self, values, **attr):
         are_node_attrdict_tuple = False
         try:
             for v in values:
@@ -146,10 +146,11 @@ class BaseGraph:
                 )
                 n_values = []
                 for i, d in values:
-                    d = dict(d)
+                    n_d = dict(attr)
+                    n_d.update(d)
                     if self.identifier_property not in d:
-                        d[self.identifier_property] = i
-                    n_values.append(d)
+                        n_d[self.identifier_property] = i
+                    n_values.append(n_d)
                 values = n_values
             else:
                 query = self.add_nodes_query % (self.node_label, self.identifier_property)

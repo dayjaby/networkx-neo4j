@@ -26,7 +26,7 @@ G.add_nodes_from([("Pear", {
 }), ("Apricot", {
     "shape": "round"
 })])
-G.add_nodes_from(H.nodes(data=True))
+G.add_nodes_from(H.nodes(data=True), imported=True)
 
 for name, properties in G.nodes(data=True):
     print("{} has {} properties".format(name, len(properties)))
