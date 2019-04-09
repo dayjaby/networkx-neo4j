@@ -198,7 +198,7 @@ class BaseGraph:
             session.run(query, {"edges": [fix_edge(list(edge)) for edge in edges]})
 
 
-    def update(self, edges=None, nodes=None):
+    def update(self, edges=None, nodes=None, graph_id_props=None):
         if edges is not None:
             if nodes is not None:
                 self.add_nodes_from(edges)
@@ -225,7 +225,17 @@ class BaseGraph:
                         except:
                             pass
                         adding_edges.append((u, v, data))
-                    self.add_nodes_from(graph_nodes(data=True))
+                    graph_nodes_data = graph_nodes(data=True)
+                    graph_nodes_fixed_data = []
+                    for n, d in graph_nodes_data:
+                        if graph_id_props is not None:
+                            if isinstance(graph_id_props, tuple) or isinstance(graph_id_props, list):
+                                for value, v in zip(n, graph_id_props):
+                                    d[v] = value
+                            else:
+                                d[graph_id_props] = n
+                        graph_nodes_fixed_data.append((n, d))
+                    self.add_nodes_from(graph_nodes_fixed_data)
                     self.add_edges_from(adding_edges)
 
     _clear_graph_nodes_query = """\

@@ -11,8 +11,8 @@ config = {
 }
 G = nxneo4j.DiGraph(driver, config)
 H = nx.DiGraph()
-H.add_node("Cherry", shape="curved")
-H.add_node("Cherry juice")
+H.add_node(777, name="Cherry", shape="curved")
+H.add_node(888, name="Cherry juice")
 H.add_edge("Cherry juice", "Cherry", percentage=100)
 H.add_node(123, name="Kiwi")
 
@@ -32,7 +32,7 @@ G.add_nodes_from([("Pear", {
     "shape": "round"
 })])
 
-G.update(H)
+G.update(H, graph_id_props="original_id")
 # does the same as:
 # G.add_nodes_from(H.nodes(data=True))
 # G.add_edges_from(H.edges(data=True))
