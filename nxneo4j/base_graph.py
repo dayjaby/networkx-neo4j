@@ -1,4 +1,5 @@
 import itertools
+from networkx.exception import NetworkXError
 
 class NodeView:
     def __init__(self, graph):
@@ -7,9 +8,40 @@ class NodeView:
     def __iter__(self):
         return iter(self.__call__())
 
+    number_of_nodes_query = """\
+    MATCH (:`%s`)
+    RETURN count(*) AS numberOfNodes
+    """
+
+    def __len__(self):
+        with self.graph.driver.session() as session:
+            query = self.number_of_nodes_query % self.graph.node_label
+            return session.run(query).peek()["numberOfNodes"]
+
+    get_node_attributes_query = """\
+    MATCH (node:`%s` {`%s`: {value} })
+    RETURN node
+    """
+
+    def __getitem__(self, index):
+        with self.graph.driver.session() as session:
+            query = self.get_node_attributes_query % (
+                self.graph.node_label,
+                self.graph.identifier_property
+            )
+            key = self.graph.identifier_property
+            n = session.run(query, {"value": index}).single()["node"]
+            data = {k: n[k] for k in n.keys() if k!=key}
+            return data
+
+    get_nodes_query = """\
+    MATCH (node:`%s`)
+    RETURN node
+    """
+
     def __call__(self, data=False, default=None):
         with self.graph.driver.session() as session:
-            query = self.graph.get_nodes_query % (self.graph.node_label)
+            query = self.get_nodes_query % (self.graph.node_label)
             nodes = [r["node"] for r in session.run(query).records()]
             key = self.graph.identifier_property
             if not data:
@@ -30,12 +62,31 @@ class EdgeView:
     def __iter__(self):
         return iter(self.__call__())
 
+    number_of_edges_query = """\
+    MATCH (u:`%s`)-[edge:`%s`]->(v:`%s`)
+    RETURN COUNT(edge) AS numberOfEdges
+    """
+
+    def __len__(self):
+        with self.graph.driver.session() as session:
+            query = self.number_of_edges_query % (
+                self.graph.node_label,
+                self.graph.relationship_type,
+                self.graph.node_label
+            )
+            return session.run(query).peek()["numberOfEdges"]
+
+    get_edges_query = """\
+    MATCH (u:`%s`)-[edge:`%s`]->(v:`%s`)
+    RETURN u.`%s` AS u, v.`%s` AS v, edge
+    """
+
     def __call__(self, data=False, default=None):
         if self.graph.relationship_type is None:
             return # raises StopIteration
 
         with self.graph.driver.session() as session:
-            query = self.graph.get_edges_query % (
+            query = self.get_edges_query % (
                 self.graph.node_label,
                 self.graph.relationship_type,
                 self.graph.node_label,
@@ -75,6 +126,9 @@ class BaseGraph:
     def __len__(self):
         return len(self.nodes)
 
+    def number_of_nodes(self):
+        return len(self.nodes)
+
     @property
     def nodes(self):
         # Lazy View creation, like in networkx
@@ -88,15 +142,6 @@ class BaseGraph:
         self.__dict__["edges"] = edges
         return edges
 
-    get_nodes_query = """\
-    MATCH (node:`%s`)
-    RETURN node
-    """
-
-    get_edges_query = """\
-    MATCH (u:`%s`)-[edge:`%s`]->(v:`%s`)
-    RETURN u.`%s` AS u, v.`%s` AS v, edge
-    """
 
     add_node_query = """\
     MERGE (:`%s` {`%s`: {value} })
@@ -210,12 +255,15 @@ class BaseGraph:
     remove_node_query = """\
     MATCH (n:`%s` {`%s`: {value} })
     DETACH DELETE n
+    RETURN COUNT(*) AS deletedNodes;
     """
 
     def remove_node(self, n):
         with self.driver.session() as session:
             query = self.remove_node_query % (self.node_label, self.identifier_property)
-            session.run(query, {"value": n})
+            deleted_nodes = session.run(query, {"value": n}).peek()["deletedNodes"]
+            if deleted_nodes < 1:
+                raise NetworkXError("The node %s is not in the graph." % (n, ))
 
     remove_nodes_query = """\
     UNWIND $nodes as value
@@ -289,16 +337,6 @@ class BaseGraph:
                 session.run(query)
             query = self._clear_graph_nodes_query % (self.node_label)
             session.run(query)
-
-    number_of_nodes_query = """\
-    MATCH (:`%s`)
-    RETURN count(*) AS numberOfNodes
-    """
-
-    def number_of_nodes(self):
-        with self.driver.session() as session:
-            query = self.number_of_nodes_query % self.node_label
-            return session.run(query).peek()["numberOfNodes"]
 
     betweenness_centrality_query = """\
     CALL algo.betweenness.stream({nodeLabel}, {relationshipType}, {
